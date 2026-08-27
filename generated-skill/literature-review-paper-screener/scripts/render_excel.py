@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """Render the audited cloud results into Excel Paper Sheet + Reading List.
 
-Reads the LoomLoom result-rows JSON, extracts the stp_build01 artifact (paper_sheet +
-reading_list), and writes two .xlsx workbooks:
+Reads the LoomLoom result-rows JSON which contains **one row per screened paper** (V1.1
+per-paper execution model), extracts the stp_build01 artifact of EVERY completed row, merges
+them into one global Paper Sheet + Reading List, and writes two .xlsx workbooks:
 
-- PaperSheet.xlsx  — one row per screened paper, full record columns
-- ReadingList.xlsx — grouped by the six Reading Role categories with the required columns
+- PaperSheet.xlsx  — one row per screened paper, full record columns (merged across all task rows)
+- ReadingList.xlsx — grouped by the six Reading Role categories with the required columns (merged)
 
 Uses only the Python standard library; no openpyxl dependency.
 Writes .xlsx-compatible XML workbooks directly (no third-party packages).
@@ -28,14 +29,17 @@ PAPER_COLS = [
 LIST_COLS = ["priority", "reading_role", "citation", "title", "notes", "summary", "links"]
 
 
-def find_build_artifact(rows):
+def collect_build_artifacts(rows):
+    """Return the stp_build01 inlineText of every completed row."""
+    texts = []
     for row in rows:
         if row.get("status") != "completed":
             continue
         for a in row.get("artifacts", []):
             if a.get("stepId") == "stp_build01" and a.get("inlineText"):
-                return a["inlineText"]
-    return None
+                texts.append(a["inlineText"])
+                break
+    return texts
 
 
 def strip_fence(text):
@@ -45,6 +49,18 @@ def strip_fence(text):
         if t.endswith("```"):
             t = t[:-3]
     return t.strip()
+
+
+def merge_builds(texts):
+    """Merge per-row build outputs into one global paper_sheet + reading_list."""
+    paper_sheet = []
+    reading_list = {}
+    for t in texts:
+        b = json.loads(strip_fence(t))
+        paper_sheet.extend(b.get("paper_sheet", []))
+        for cat, items in b.get("reading_list", {}).items():
+            reading_list.setdefault(cat, []).extend(items)
+    return paper_sheet, reading_list
 
 
 def xml_escape(v):
@@ -116,21 +132,21 @@ def write_xlsx(path, sheets):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--input", required=True, help="result-rows JSON")
+    ap.add_argument("--input", required=True, help="result-rows JSON (one row per paper; all rows are merged)")
     ap.add_argument("--out-dir", default=".", help="output directory")
     args = ap.parse_args()
 
     data = json.loads(Path(args.input).read_text(encoding="utf-8"))
     rows = data.get("rows", data if isinstance(data, list) else [])
-    raw = find_build_artifact(rows)
-    if not raw:
+    texts = collect_build_artifacts(rows)
+    if not texts:
         raise SystemExit("no stp_build01 artifact found in input")
-    build = json.loads(strip_fence(raw))
+    paper_sheet, reading_list = merge_builds(texts)
 
-    paper_rows = [[p.get(c, "") for c in PAPER_COLS] for p in build.get("paper_sheet", [])]
+    paper_rows = [[p.get(c, "") for c in PAPER_COLS] for p in paper_sheet]
     list_rows = []
     for cat in ROLES:
-        for it in build.get("reading_list", {}).get(cat, []):
+        for it in reading_list.get(cat, []):
             list_rows.append([it.get(c, "") for c in LIST_COLS])
 
     out_dir = Path(args.out_dir)
@@ -139,7 +155,7 @@ def main():
     list_path = out_dir / "ReadingList.xlsx"
     write_xlsx(paper_path, [("PaperSheet", PAPER_COLS, paper_rows)])
     write_xlsx(list_path, [("ReadingList", LIST_COLS, list_rows)])
-    print(f"wrote {paper_path} ({len(paper_rows)} rows)")
+    print(f"wrote {paper_path} ({len(paper_rows)} rows, merged from {len(texts)} task rows)")
     print(f"wrote {list_path} ({len(list_rows)} rows)")
 
 
