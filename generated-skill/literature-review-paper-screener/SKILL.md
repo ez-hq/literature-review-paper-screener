@@ -52,16 +52,44 @@ loomloom doctor --output json
 If `healthy=false`, complete authentication first (browser login preferred: `loomloom login`;
 fallback API token in the platform console). Do not proceed to cloud steps without a healthy Doctor.
 
+### 1.5 Ask the user which Cloud platform to run on
+
+The SkillBot is published on **two platforms**. You **must ask the user before any cloud run**
+which platform to use — never decide on their behalf. Payment method is the decision guide:
+
+| Platform | Profile | Evidence input mode | Market fee | When to pick |
+|---|---|---|---|---|
+| CogFoundry | `cogfoundry` | Upload one per-paper file (`input-asset upload`) + asset id in the cell | USD 0.10 / task | Credit-card / international payment (USD) |
+| ShengSuanYun (胜算云) | `shengsuanyun` | Paste the single-paper record JSON into the cell (no upload port on v2) | CNY 0.70 / task | **China payment methods** (微信/支付宝/人民币) |
+
+Ask in plain language, e.g.: *"Which platform should I run on? ShengSuanYun (胜算云, CNY — works
+with WeChat/Alipay/RMB) or CogFoundry (USD — credit card)?"*
+
+Then switch the active profile and verify health before proceeding:
+
+```bash
+loomloom server list
+loomloom server use <cogfoundry|shengsuanyun>
+loomloom doctor --output json
+```
+
+The screening logic is identical; only the evidence-entry mechanics and fee differ. The platform
+choice is confirmed **again at submission time** (step 8) together with the cost — if the user
+changes platform after evidence entry, redo the platform-specific evidence-entry step (6) for the
+new platform.
+
 ### 2. Understand your template binding
 
-This Skill orchestrates a **private template version**. Current binding (do not invent IDs):
+This Skill orchestrates a **private template version** on each platform. Current bindings
+(do not invent IDs):
 
-- Template ID: `76484632-796a-4980-bfc5-180c9fd4200f`
-- Version ID: `4677c008-6780-425e-b2f7-c05bc7caba38` (v1)
-- Name: `Literature Review Paper Screener — V1`
+| Platform | Template ID | Version ID |
+|---|---|---|
+| CogFoundry | `76484632-796a-4980-bfc5-180c9fd4200f` | `4677c008-6780-425e-b2f7-c05bc7caba38` (v1) |
+| ShengSuanYun | `a9e2cf68-e1c5-4b01-ab40-85dc6d44d893` | `0782e45a-ea55-4098-9a50-9add1ad58773` (v1, TemplateSpec v2) |
 
-Verify with `loomloom template-spec get 76484632-796a-4980-bfc5-180c9fd4200f` before running.
-If the binding changes, ask the owner; never guess IDs.
+Verify with `loomloom template-spec get <template-id>` before running. If the binding changes,
+ask the owner; never guess IDs.
 
 ### 3. Gather user input (conversational)
 
@@ -133,19 +161,26 @@ Fill **one row per paper** (N papers → N rows):
 - `Assignment Requirements`, `Research Restrictions` — optional; same values on every row when provided
 - `Required Citation Count`, `Deadline`, `Available Reading Time` — optional (collected for context only)
 - `Screening Model` — select from the approved list once; leave default if fine
-- `Literature Evidence Package` — **upload each per-paper record as its own text/plain asset and put
-  that row's `input_asset_id` in the cell**:
+- `Literature Evidence Package` — **platform-dependent**:
 
-```bash
-# one upload per paper
-loomloom input-asset upload handoff_p001.json
-# -> asset id for row 1
-loomloom input-asset upload handoff_p002.json
-# -> asset id for row 2  ... and so on
-```
+  - **CogFoundry**: upload each per-paper record as its own text/plain asset and put that row's
+    `input_asset_id` in the cell:
 
-Every row's evidence cell must reference a **different single-paper asset**. Reusing one
-multi-paper asset on every row is forbidden (it reintroduces the timeout).
+    ```bash
+    # one upload per paper
+    loomloom input-asset upload handoff_p001.json
+    # -> asset id for row 1
+    loomloom input-asset upload handoff_p002.json
+    # -> asset id for row 2  ... and so on
+    ```
+
+  - **ShengSuanYun (胜算云)**: its v2 TemplateSpec exposes no text-upload port, so paste the
+    per-paper record as **compact single-line JSON** (see references/evidence-package-schema.md)
+    directly into the cell. Keep it under ~25,000 chars per cell (Excel cell limit is 32,767).
+
+Every row's evidence must reference a **different single-paper** record (a separate asset on
+CogFoundry, a separate pasted record on ShengSuanYun). Reusing one multi-paper bundle on every row
+is forbidden (it reintroduces the timeout).
 
 ### 7. Validate and precheck (read-only)
 
@@ -163,11 +198,19 @@ Show the owner, before any submission:
 
 Do **not** submit yet.
 
-### 8. Confirmed run (fee + count lock)
+### 8. Confirmed run (platform + fee + count lock)
 
-Get explicit owner confirmation against the shown numbers, phrased as: **"N papers → N cloud
-tasks → total fee ≈ 0.10 × N + model cost. Confirm?"** The row count is the paper-count lock: the
-number of tasks (and fee units) is fixed before submission and cannot change mid-run. Then:
+Before anything else, **re-confirm the platform with the owner** (even if chosen in step 1.5):
+
+- **ShengSuanYun (胜算云)** — CNY ¥0.70/task, China payment (WeChat/Alipay/RMB)
+- **CogFoundry** — USD $0.10/task, credit-card payment
+
+Then present the full numbers and get an explicit confirmation, phrased as: **"Platform: <X>.
+N papers → N cloud tasks → total fee ≈ <0.70 CNY × N | 0.10 USD × N> + model cost. Confirm?"**
+The row count is the paper-count lock: the number of tasks (and fee units) is fixed before
+submission and cannot change mid-run. Also verify the active profile matches the confirmed
+platform (`loomloom doctor`). If the owner changes platform at this point, go back to step 6
+(evidence entry) for the new platform. Then:
 
 ```bash
 loomloom template-spec submit-workbook <template-id> <version-id> <filled.xlsx> --client-request-id <new-uuid>

@@ -1,12 +1,15 @@
 # Cloud template & product internals — NEVER publish
 template-spec.json
+template-spec-*.json
 store-manifest.json
 business-brief.md
 template-plan.md
 release-manifest.json
+market-listing-materials.md
 
 # Review/test artifacts & local outputs
 review/
+review-sys/
 dist/
 *.xlsx
 *.DS_Store

@@ -27,6 +27,15 @@ from pathlib import Path
 
 LEVELS = {"A", "B", "C", "D"}
 ROLES = {"Foundational", "Core Evidence", "Supporting", "Counterargument", "Recent", "Methodology"}
+SCREEN_STEP_IDS = ("stp_screen01", "stp_screen1")  # CogFoundry v1 / ShengSuanYun v2
+BUILD_STEP_IDS = ("stp_build01",)  # both platforms use stp_build01
+
+
+def pick_artifact(arts, step_ids):
+    for sid in step_ids:
+        if arts.get(sid):
+            return arts[sid]
+    return ""
 
 
 def collect_artifacts(rows):
@@ -68,11 +77,11 @@ def merge_sets(sets):
     build = {"paper_sheet": [], "reading_list": {}}
     for arts in sets:
         try:
-            s = parse_json(arts.get("stp_screen01", ""), "screening step")
+            s = parse_json(pick_artifact(arts, SCREEN_STEP_IDS), "screening step")
         except ValueError as e:
             raise ValueError(f"screening step: {e}")
         try:
-            b = parse_json(arts.get("stp_build01", ""), "build step")
+            b = parse_json(pick_artifact(arts, BUILD_STEP_IDS), "build step")
         except ValueError as e:
             raise ValueError(f"build step: {e}")
         screen["screening_records"].extend(s.get("screening_records", []))
@@ -81,6 +90,13 @@ def merge_sets(sets):
         for cat, items in b.get("reading_list", {}).items():
             build["reading_list"].setdefault(cat, []).extend(items)
     return screen, build
+
+
+def normalize_level(lvl):
+    """Accept 'A', 'A Full Evidence', 'B Extended Evidence', etc. (model style varies)."""
+    if not lvl:
+        return ""
+    return lvl.strip()[0].upper() if lvl.strip() else ""
 
 
 def audit(screen, build, failed_rows=0):
@@ -97,7 +113,7 @@ def audit(screen, build, failed_rows=0):
     # 1. evidence level + credibility rules on screening records
     for p in sr + er:
         lvl = p.get("evidence_availability_level", "")
-        if lvl not in LEVELS:
+        if normalize_level(lvl) not in LEVELS:
             issues.append(f"{p.get('record_id')}: missing/invalid evidence_availability_level {lvl!r}")
         cc = p.get("content_credibility_status", "")
         if not cc:
