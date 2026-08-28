@@ -74,7 +74,9 @@ not need to be repeated inside the evidence file (including it is harmless but n
       "evidence_availability_level": "A",
       "available_evidence": "...",
       "missing_evidence": "...",
-      "assessment_limitations": "..."
+      "assessment_limitations": "...",
+      "metadata_status": "VERIFIED",
+      "metadata_gate_notes": "DOI resolved in Crossref; PMID matched in PubMed; all identifiers refer to the same publication."
     }
   ]
 }
@@ -83,6 +85,12 @@ not need to be repeated inside the evidence file (including it is harmless but n
 > The `run_context` block shown above is repeated identically in every per-paper file. The
 > `papers` array holds exactly one record — this file's paper. (The standalone `run_context` block
 > shown earlier is the shared copy every file embeds.)
+
+> `metadata_status` is produced by the local **Metadata Validation Gate**
+> (references/metadata-validation-gate.md) — `VERIFIED` or `PARTIALLY VERIFIED` only. For
+> PARTIALLY VERIFIED records, mark each unverifiable identifier as `NOT VERIFIED` (e.g.
+> `"doi": "NOT VERIFIED"`). Records that are `MISMATCH` / `INVALID` never reach this file. The
+> Cloud ignores this field — it screens only the evidence content.
 
 ## Evidence Availability Level assignment
 

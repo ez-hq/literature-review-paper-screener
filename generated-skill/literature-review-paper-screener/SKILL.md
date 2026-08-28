@@ -147,6 +147,32 @@ references/evidence-package-schema.md for the exact shape), named like `handoff_
 single cloud task small enough to finish inside the platform activity timeout. Do not bundle all
 papers into one file.
 
+### 5.5 Metadata Validation Gate (mandatory, before handoff)
+
+Before any per-paper record may be written into its `handoff_p<record_id>.json`, run the
+**Metadata Validation Gate** (see references/metadata-validation-gate.md) against authoritative
+sources (PubMed / Crossref). This gate validates **bibliographic identity only** — it never
+touches search logic, screening logic, CRAAP, Topic Relevance, Reading Role, Priority, the Cloud
+DAG, or workbook batching.
+
+- Every unique candidate receives exactly one outcome:
+  `VERIFIED` | `PARTIALLY VERIFIED` | `MISMATCH` | `INVALID`.
+- **VERIFIED / PARTIALLY VERIFIED** → record may proceed; write
+  `"metadata_status": "VERIFIED"|"PARTIALLY VERIFIED"` into the handoff record and mark any
+  unverifiable identifier explicitly (`"doi": "NOT VERIFIED"`).
+- **MISMATCH / INVALID** → the record is **blocked** before `handoff_p<record_id>.json`, cloud
+  upload, screening, and final delivery. Return it to evidence collection (step 5) for
+  re-verification; never guess, infer, or repair identity with semantic similarity. If
+  re-verification cannot resolve identity, surface the conflicting values to the owner and let
+  the owner decide keep/drop.
+- **No DOI/PMID and no authoritative confirmation** (not indexed by PubMed/Crossref): keep the
+  record as `PARTIALLY VERIFIED` with identifiers marked `NOT VERIFIED` — never silently drop
+  valid literature; flag it in the gate ledger and delivery summary for owner awareness.
+- Keep a short per-run gate ledger (record_id → status → what was checked) for the delivery
+  summary.
+- Core principle: **a correct summary does not prove that the citation metadata is correct.**
+  Evidence content and bibliographic identity are validated separately.
+
 ### 6. Prepare the cloud workbook (one row per paper)
 
 Download the workbook for the exact version:
