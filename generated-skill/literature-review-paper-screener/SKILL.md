@@ -147,6 +147,18 @@ references/evidence-package-schema.md for the exact shape), named like `handoff_
 single cloud task small enough to finish inside the platform activity timeout. Do not bundle all
 papers into one file.
 
+**Language rule (mandatory): the Evidence Record is written in English, always.**
+
+- Literature content (abstract, full-text excerpts, structured info) is academic and in English:
+  keep it as-is — **never translate article content into another language** (e.g. do NOT write
+  "在 4075 名 UKPDS 患者中…" for an English paper; keep the original English).
+- Every field the local agent writes must be English: `available_content`, `available_evidence`,
+  `missing_evidence`, `assessment_limitations`, `abstract_or_available_content`,
+  `metadata_gate_notes`, and any notes.
+- The language the user talks in does **not** matter: the record is English. If the user is
+  non-English-speaking, still write English (academic output must be English end-to-end:
+  handoff → Cloud summary/notes → Paper Sheet → Reading List).
+
 ### 5.5 Metadata Validation Gate (mandatory, before handoff)
 
 Before any per-paper record may be written into its `handoff_p<record_id>.json`, run the
@@ -284,8 +296,32 @@ papers searched, screened, included, excluded (with reasons), the evidence-level
 (A/B/C/D), and how many cloud tasks ran. Point out evidence-limited papers (Levels C/D) and
 preliminary classifications.
 
+**Before delivery, verify the outputs are fully English** — scan the rendered data and the handoff
+for non-English (CJK) characters; if any are found, return to step 5 (evidence collection),
+rewrite the offending fields in English, and re-run the affected stages:
+
+```bash
+# quick check: prints any records containing CJK characters in the rendered output
+python3 -c "
+import sys, json, re
+for f in sys.argv[1:]:
+    d = json.load(open(f, encoding='utf-8'))
+    hits = [k for k, v in (d.items() if isinstance(d, dict) else []) if isinstance(v, str) and re.search(r'[\u4e00-\u9fff]', v)]
+    print(f, 'CJK fields:', hits if hits else 'none')
+" result-rows.json handoff_p*.json
+```
+
 ## Rules you must not break
 
+- **Ask the user which platform before EVERY cloud run — including test and verification runs.**
+  Never default to the currently active profile without asking (step 1.5), and never skip the
+  platform + fee + count confirmation ceremony (step 8) for any run, test or not. A run that
+  spends money without asking is a rule violation, not an internal shortcut.
+- **All handoff content and all delivered outputs are in English.** Literature content keeps its
+  original language (academic literature = English; never translate it). Never let the user's
+  conversation language leak into the Evidence Record — writing "在 4075 名 UKPDS 患者中…"
+  instead of the paper's original English is a violation. Cloud summary/notes follow the input,
+  so English input guarantees English output.
 - **One paper per workbook row / per cloud task.** Never bundle multiple papers into one evidence
   asset or one row; multi-paper single rows time out on the platform (V1.1 fixes this by design).
   If a row's task fails or times out, retry that row alone — do not "merge" papers to retry.
