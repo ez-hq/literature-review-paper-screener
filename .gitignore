@@ -14,3 +14,4 @@ dist/
 *.xlsx
 *.DS_Store
 .DS_Store
+make_zh_spec.py
