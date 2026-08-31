@@ -59,11 +59,11 @@ which platform to use — never decide on their behalf. Payment method is the de
 
 | Platform | Profile | Evidence input mode | Market fee | When to pick |
 |---|---|---|---|---|
-| CogFoundry | `cogfoundry` | Upload one per-paper file (`input-asset upload`) + asset id in the cell | USD 0.10 / task | Credit-card / international payment (USD) |
-| ShengSuanYun (胜算云) | `shengsuanyun` | Paste the single-paper record JSON into the cell (no upload port on v2) | CNY 0.70 / task | **China payment methods** (微信/支付宝/人民币) |
+| CogFoundry | `cogfoundry` | Upload one per-paper file (`input-asset upload`) + asset id in the cell | USD 0.10 / task | Credit-card / international payment (USD) — **English output** |
+| ShengSuanYun (胜算云) | `shengsuanyun` | Paste the single-paper record JSON into the cell (no upload port on v2) | CNY 0.70 / task | China payment (WeChat/Alipay/RMB) — **Chinese-language listing (文献智筛); outputs in Simplified Chinese** |
 
-Ask in plain language, e.g.: *"Which platform should I run on? ShengSuanYun (胜算云, CNY — works
-with WeChat/Alipay/RMB) or CogFoundry (USD — credit card)?"*
+Ask in plain language, e.g.: *"Which platform should I run on? CogFoundry (USD — credit card,
+English output) or ShengSuanYun (胜算云, CNY — Chinese output)?"*
 
 Then switch the active profile and verify health before proceeding:
 
@@ -85,8 +85,8 @@ This Skill orchestrates a **private template version** on each platform. Current
 
 | Platform | Template ID | Version ID |
 |---|---|---|
-| CogFoundry | `76484632-796a-4980-bfc5-180c9fd4200f` | `4677c008-6780-425e-b2f7-c05bc7caba38` (v1) |
-| ShengSuanYun | `a9e2cf68-e1c5-4b01-ab40-85dc6d44d893` | `0782e45a-ea55-4098-9a50-9add1ad58773` (v1, TemplateSpec v2) |
+| CogFoundry | `76484632-796a-4980-bfc5-180c9fd4200f` | `290db24c-d6b6-4453-ad4b-f0173cf2a3cc` (v1.1, English-only) |
+| ShengSuanYun | `a9e2cf68-e1c5-4b01-ab40-85dc6d44d893` | `1cd0f04f-0db9-4470-a5ce-23bb2177a9d8` (v4, Chinese-only) |
 
 Verify with `loomloom template-spec get <template-id>` before running. If the binding changes,
 ask the owner; never guess IDs.
