@@ -59,7 +59,7 @@ which platform to use — never decide on their behalf. Payment method is the de
 
 | Platform | Profile | Evidence input mode | Market fee | When to pick |
 |---|---|---|---|---|
-| CogFoundry | `cogfoundry` | Upload one per-paper file (`input-asset upload`) + asset id in the cell | USD 0.10 / task | Credit-card / international payment (USD) — **English output** |
+| CogFoundry | `cogfoundry` | Paste the single-paper record JSON into the cell (v2 platform: upload port removed) | USD 0.10 / task | Credit-card / international payment (USD) — **English output** |
 | ShengSuanYun (胜算云) | `shengsuanyun` | Paste the single-paper record JSON into the cell (no upload port on v2) | CNY 0.70 / task | China payment (WeChat/Alipay/RMB) — **Chinese-language listing (文献智筛); outputs in Simplified Chinese** |
 
 Ask in plain language, e.g.: *"Which platform should I run on? CogFoundry (USD — credit card,
@@ -85,8 +85,8 @@ This Skill orchestrates a **private template version** on each platform. Current
 
 | Platform | Template ID | Version ID |
 |---|---|---|
-| CogFoundry | `76484632-796a-4980-bfc5-180c9fd4200f` | `290db24c-d6b6-4453-ad4b-f0173cf2a3cc` (v1.1, English-only) |
-| ShengSuanYun | `a9e2cf68-e1c5-4b01-ab40-85dc6d44d893` | `65e04076-8491-4b18-93f9-895a58397b70` (v5, Chinese-only) |
+| CogFoundry | `76484632-796a-4980-bfc5-180c9fd4200f` | `271f17cf-566f-41fd-80fa-3985a59df62c` (v1.5, v2 syntax, paste mode, English-only) |
+| ShengSuanYun | `a9e2cf68-e1c5-4b01-ab40-85dc6d44d893` | `b394726b-6e18-429c-a9c0-53daf6f3c2eb` (v7, Chinese-only) |
 
 Verify with `loomloom template-spec get <template-id>` before running. If the binding changes,
 ask the owner; never guess IDs.
@@ -190,7 +190,7 @@ DAG, or workbook batching.
 Download the workbook for the exact version:
 
 ```bash
-loomloom template-spec download-workbook 76484632-796a-4980-bfc5-180c9fd4200f 290db24c-d6b6-4453-ad4b-f0173cf2a3cc
+loomloom template-spec download-workbook 76484632-796a-4980-bfc5-180c9fd4200f 271f17cf-566f-41fd-80fa-3985a59df62c
 ```
 
 Fill **one row per paper** (N papers → N rows):
