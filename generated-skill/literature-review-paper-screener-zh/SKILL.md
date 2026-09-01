@@ -131,7 +131,7 @@ loomloom doctor --output json
 下载精确版本的工作簿：
 
 ```bash
-loomloom template-spec download-workbook a9e2cf68-e1c5-4b01-ab40-85dc6d44d893 1cd0f04f-0db9-4470-a5ce-23bb2177a9d8
+loomloom template-spec download-workbook a9e2cf68-e1c5-4b01-ab40-85dc6d44d893 65e04076-8491-4b18-93f9-895a58397b70
 ```
 
 **每篇文献一行**（N 篇 → N 行）：

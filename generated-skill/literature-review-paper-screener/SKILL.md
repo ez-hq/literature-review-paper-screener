@@ -86,7 +86,7 @@ This Skill orchestrates a **private template version** on each platform. Current
 | Platform | Template ID | Version ID |
 |---|---|---|
 | CogFoundry | `76484632-796a-4980-bfc5-180c9fd4200f` | `290db24c-d6b6-4453-ad4b-f0173cf2a3cc` (v1.1, English-only) |
-| ShengSuanYun | `a9e2cf68-e1c5-4b01-ab40-85dc6d44d893` | `1cd0f04f-0db9-4470-a5ce-23bb2177a9d8` (v4, Chinese-only) |
+| ShengSuanYun | `a9e2cf68-e1c5-4b01-ab40-85dc6d44d893` | `65e04076-8491-4b18-93f9-895a58397b70` (v5, Chinese-only) |
 
 Verify with `loomloom template-spec get <template-id>` before running. If the binding changes,
 ask the owner; never guess IDs.
@@ -190,7 +190,7 @@ DAG, or workbook batching.
 Download the workbook for the exact version:
 
 ```bash
-loomloom template-spec download-workbook 76484632-796a-4980-bfc5-180c9fd4200f 4677c008-6780-425e-b2f7-c05bc7caba38
+loomloom template-spec download-workbook 76484632-796a-4980-bfc5-180c9fd4200f 290db24c-d6b6-4453-ad4b-f0173cf2a3cc
 ```
 
 Fill **one row per paper** (N papers → N rows):

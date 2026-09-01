@@ -26,7 +26,7 @@ import sys
 from pathlib import Path
 
 LEVELS = {"A", "B", "C", "D"}
-ROLES = {"Foundational", "Core Evidence", "Supporting", "Counterargument", "Recent", "Methodology"}
+ROLES = {"基础文献", "核心证据", "支撑文献", "反方观点", "近期文献", "方法论"}
 SCREEN_STEP_IDS = ("stp_screen01", "stp_screen1")  # CogFoundry v1 / ShengSuanYun v2
 BUILD_STEP_IDS = ("stp_build01",)  # both platforms use stp_build01
 
@@ -118,6 +118,23 @@ def audit(screen, build, failed_rows=0):
         cc = p.get("content_credibility_status", "")
         if not cc:
             issues.append(f"{p.get('record_id')}: missing content_credibility_status")
+
+    # 1a. required fields present (V5-02): topic_relevance_score + priority
+    for p in sr:
+        trs = p.get("topic_relevance_score")
+        if trs in (None, ""):
+            issues.append(f"{p.get('record_id')}: missing topic_relevance_score")
+        elif not isinstance(trs, int) or trs not in (0, 1, 2, 3):
+            issues.append(f"{p.get('record_id')}: topic_relevance_score {trs!r} not an integer 0-3")
+        pri = p.get("priority", "")
+        if pri and not str(pri).startswith(("优先1", "优先2", "优先3")):
+            issues.append(f"{p.get('record_id')}: priority {pri!r} not Chinese enum")
+    for p in ps:
+        trs = p.get("topic_relevance_score")
+        if trs in (None, ""):
+            issues.append(f"{p.get('record_id')}: paper_sheet missing topic_relevance_score")
+        elif not isinstance(trs, int) or trs not in (1, 2, 3):
+            issues.append(f"{p.get('record_id')}: paper_sheet topic_relevance_score {trs!r} not integer 1-3")
 
     # 1b. no duplicate record IDs across merged rows
     seen_ids = {}

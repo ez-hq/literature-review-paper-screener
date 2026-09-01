@@ -24,7 +24,7 @@ PAPER_COLS = [
     ("isbn", "ISBN"), ("url", "网址"), ("database_record", "数据库记录"), ("links", "链接"),
     ("evidence_availability_level", "证据可用级别"), ("available_evidence", "已有证据"),
     ("missing_evidence", "缺失证据"), ("assessment_limitations", "评估局限"),
-    ("topic_relevance", "主题相关度"), ("source_validity", "来源有效性"),
+    ("topic_relevance_score", "主题相关度"), ("source_validity", "来源有效性"),
     ("basic_credibility", "基础可信度"), ("content_credibility_status", "内容可信度"),
     ("recency_status", "时效性"), ("summary", "摘要评价"), ("notes", "备注"),
 ]
@@ -152,10 +152,17 @@ def main():
     paper_headers = [zh for _, zh in PAPER_COLS]
     paper_rows = [[p.get(k, "") for k, _ in PAPER_COLS] for p in paper_sheet]
     list_headers = [zh for _, zh in LIST_COLS]
+    # V5-01 兜底：reading_list 按 paper_sheet 的 primary_reading_role 确定性重建去重，
+    # 保证每篇论文恰好出现一次（云端模型可能跨分类重复，本地交付必须可靠）
     list_rows = []
+    by_role = {}
+    for p in paper_sheet:
+        by_role.setdefault(p.get("primary_reading_role", ""), []).append(p)
     for cat in ROLES:
-        for it in reading_list.get(cat, []):
-            list_rows.append([it.get(k, "") for k, _ in LIST_COLS])
+        for p in by_role.get(cat, []):
+            row = {k: p.get(k, "") for k, _ in LIST_COLS}
+            row["reading_role"] = p.get("primary_reading_role", "")
+            list_rows.append([row[k] for k, _ in LIST_COLS])
 
     out_dir = Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
