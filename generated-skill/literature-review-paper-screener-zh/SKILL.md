@@ -31,6 +31,16 @@ description: >-
 - `loomloom` 技能与命令行已安装，`loomloom doctor` 报告 `healthy=true`
 - 胜算云账户（人民币充值）有余额用于云端运行
 
+## 开始之前：选择语言与支付渠道
+
+你装的是**中文包（-zh）**，云端输出**简体中文**；若装英文包（-en）则输出英文。
+支付/运行渠道：
+- 国内 / 人民币：胜算云，¥0.7 / 次；
+- 海外 / 美元：CogFoundry，USD 0.10 / 次。
+
+> ⚠️ 模板**必须有输入文本**（文献证据包，一行一篇）；**云端无网络访问**，只评估你提交的内容。
+> 完整本地包（-zh / -en）在 GitHub：https://github.com/ez-hq/literature-review-paper-screener/releases
+
 ## 工作流
 
 ### 1. 安装/验证 loomloom
@@ -126,6 +136,7 @@ loomloom doctor --output json
 - 维护每轮校验台账（记录ID → 状态 → 核查项 → 结果说明）。
 - 核心原则：**摘要正确 ≠ 文献记录正确。**证据内容与书目身份分开校验。
 
+> 可选：粘贴前先本地 `python3 scripts/check_evidence.py 证据.json` 预检，抓格式错误（不联网）。
 ### 6. 准备云端工作簿（每行一篇）
 
 下载精确版本的工作簿：

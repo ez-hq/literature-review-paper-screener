@@ -41,6 +41,15 @@ paper in seconds. The results are **merged locally** back into one Paper Sheet +
 - `loomloom` Skill + CLI installed and `loomloom doctor` reports `healthy=true`
 - A CogFoundry (or configured) LoomLoom account with balance for cloud runs
 
+## Before you start: pick language & payment channel
+
+1. **Installed zip => cloud output language.** You are in the English package, so cloud output is **English**. Want live Simplified-Chinese output? Install the `-zh` zip instead.
+2. **Which Cloud to pay** (run cost is charged where you execute):
+   - Domestic / RMB: Shengsuanyun, CNY 0.7 / task
+   - Overseas / USD: CogFoundry, USD 0.10 / task
+3. **Input is required.** The cloud has NO internet; it evaluates ONLY the evidence text you paste. No input, no output.
+4. Full local packages (scripts/references/agents; `-zh` and `-en`) live on GitHub: https://github.com/ez-hq/literature-review-paper-screener/releases
+
 ## Workflow
 
 ### 1. Install/verify LoomLoom
@@ -184,6 +193,8 @@ DAG, or workbook batching.
   summary.
 - Core principle: **a correct summary does not prove that the citation metadata is correct.**
   Evidence content and bibliographic identity are validated separately.
+
+Optional pre-flight: run `python3 scripts/check_evidence.py <evidence.json>` before pasting to catch JSON/field errors locally (no cloud, no cost).
 
 ### 6. Prepare the cloud workbook (one row per paper)
 
