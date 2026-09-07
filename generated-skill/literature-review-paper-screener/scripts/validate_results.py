@@ -118,6 +118,10 @@ def audit(screen, build, failed_rows=0):
         cc = p.get("content_credibility_status", "")
         if not cc:
             issues.append(f"{p.get('record_id')}: missing content_credibility_status")
+        else:
+            ccl = cc.casefold()
+            if normalize_level(lvl) == "D" and not any(m in ccl for m in ("not available", "unavailable", "cannot assess", "insufficient evidence", "no content", "unable")) and "assess" in ccl:
+                issues.append(f"{p.get('record_id')}: level-D (metadata-only) but content_credibility_status {cc!r} implies assessable content")
 
     # 1b. no duplicate record IDs across merged rows
     seen_ids = {}
@@ -140,23 +144,27 @@ def audit(screen, build, failed_rows=0):
         if p.get("record_id") not in screened_ids:
             issues.append(f"{p.get('record_id')}: paper_sheet entry not in screening_records")
 
-    # 4. reading list: same pool, one role each, no duplicates
-    seen = {}
+    # 4. reading list: same pool (by record_id), one role each, no duplicates
+    rl_ids = set()
     for cat, items in rl.items():
         if cat not in ROLES:
             issues.append(f"unknown reading_list category {cat!r}")
         for it in items:
-            rid = it.get("title") or it.get("record_id")
+            rid = it.get("record_id")
+            if not rid:
+                issues.append("reading_list entry missing record_id")
+                continue
+            if rid in rl_ids:
+                issues.append(f"{rid}: duplicated reading_list entry")
+            rl_ids.add(rid)
             role = it.get("reading_role")
             if role != cat:
-                issues.append(f"{rid}: role {role!r} does not match category {cat!r}")
-            if rid in seen:
-                issues.append(f"{rid}: duplicated across categories ({seen[rid]} and {cat})")
-            seen[rid] = cat
-    rl_ids = {it.get("title") for items in rl.values() for it in items}
-    for p in ps:
-        if p.get("title") not in rl_ids and rl_ids:
-            issues.append(f"{p.get('record_id')}: paper_sheet entry missing from reading_list")
+                issues.append(f"{rid}: reading_role {role!r} does not match category {cat!r}")
+    paper_ids = {p.get("record_id") for p in ps}
+    if paper_ids != rl_ids:
+        issues.append(f"paper_sheet and reading_list pools differ by record_id (only_in_sheet={len(paper_ids - rl_ids)}, only_in_reading={len(rl_ids - paper_ids)})")
+    if ps and not rl_ids:
+        issues.append("paper_sheet has entries but reading_list is empty")
 
     # 5. citation present on paper sheet entries
     for p in ps:
