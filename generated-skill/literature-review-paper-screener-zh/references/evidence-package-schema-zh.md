@@ -10,7 +10,7 @@
 
 - 紧凑 JSON（不美化）；key 顺序按本文件所示固定；字节稳定（`ensure_ascii=False`、UTF-8、无尾随空白），同一记录始终序列化为相同字节（可复现条件）。
 - 缺失字段用 `""` / `false` / `[]` 补齐，不省略 key。
-- **记录文本一律中文。** 文献内容（摘要、全文摘录、结构化信息）保持原文——学术文献多为英文，不要翻译成中文；由本地 Agent 书写的字段（`available_content`、`available_evidence`、`missing_evidence`、`assessment_limitations`、`metadata_gate_notes` 等）用中文。JSON key 是机器协议，保持英文。
+- **记录文本默认中文。** 由本地 Agent 书写的字段（`available_content`、`available_evidence`、`missing_evidence`、`assessment_limitations`、`metadata_gate_notes` 等）默认中文，因为本包绑定的云端模板为全中文输出约束。若作业要求或用户要求这些字段用其他语言，就用该语言并记录所用语言。文献内容（摘要、全文摘录、结构化信息）始终保持原文，不要翻译。JSON key 是机器协议，保持英文。
 
 ## 运行上下文块
 

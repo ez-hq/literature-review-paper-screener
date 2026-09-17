@@ -50,7 +50,7 @@
 ### 4. 跨字段一致性检查
 
 文献记录不得混用不同出版物的元数据。以下标识符必须指向同一出版物：标题、DOI、PMID、期刊、出版年份。若任一标识符属于不同出版物：
-`METADATA_STATUS = MISMATCH` — 不要猜测哪个字段正确。把记录退回证据采集阶段重新核验。
+该记录的 `metadata_status` 为 `MISMATCH` — 不要猜测哪个字段正确。把记录退回证据采集阶段重新核验。
 
 ### 5. 校验结果
 
@@ -80,9 +80,9 @@
 
 书目身份需要权威来源确认。
 
-### 7. 输出规则
+### 7. 结果规则——哪些记录可进入下一阶段
 
-只有 `METADATA_STATUS = VERIFIED` 或 `PARTIALLY VERIFIED` 的记录可进入下一阶段。`MISMATCH` 或 `INVALID` 的记录必须在以下环节之前被拦截：交接文件、云端上传、筛选、最终交付。
+只有 `metadata_status` 为 `VERIFIED` 或 `PARTIALLY VERIFIED` 的记录可进入下一阶段。`MISMATCH` 或 `INVALID` 的记录必须在以下环节之前被拦截：交接文件、云端上传、筛选、最终交付。
 
 ---
 

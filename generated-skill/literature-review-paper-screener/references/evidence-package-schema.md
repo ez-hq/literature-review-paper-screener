@@ -18,11 +18,12 @@ single-task timeout failure (StartToClose timeout on 20-paper single-row submiss
   serializes to identical bytes (reproducible rerun condition).
 - A record with missing fields uses `""` / `false` / `[]` rather than omitting keys, per the
   available-data rules.
-- **All record text is English.** Article content (abstract, full-text excerpts, structured info)
-  keeps its original language — academic literature is English, never translate it. Fields the
-  local agent writes (`available_content`, `available_evidence`, `missing_evidence`,
-  `assessment_limitations`, `metadata_gate_notes`, notes) are English. This keeps the Cloud's
-  summary/notes, and therefore the delivered Paper Sheet / Reading List, English end-to-end.
+- **Record text defaults to English.** Fields the local agent writes (`available_content`,
+  `available_evidence`, `missing_evidence`, `assessment_limitations`, `metadata_gate_notes`,
+  notes) default to English, because the cloud template bound to this package is configured for
+  English output. When the assignment or the user requires another language for those fields, use
+  that language and record which one was used. Article content (abstract, full-text excerpts,
+  structured info) always keeps its original language — never translate it.
 
 ## Run context block
 

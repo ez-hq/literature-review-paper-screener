@@ -13,6 +13,7 @@ stp_build01 产物（paper_sheet + reading_list），合并为一份全局论文
 
 import argparse
 import json
+import sys
 import zipfile
 from pathlib import Path
 
@@ -35,16 +36,29 @@ LIST_COLS = [
 
 
 def collect_build_artifacts(rows):
-    """返回每个已完成行的 stp_build01 inlineText。"""
+    """返回 (texts, missing)。
+
+    texts 为带产物的已完成行的 stp_build01 inlineText；missing 列出缺少构建产物的已完成行，
+    以便显式报告部分池，而不是当作完整结果渲染。
+    """
     texts = []
-    for row in rows:
+    missing = []
+    for index, row in enumerate(rows):
         if row.get("status") != "completed":
             continue
+        found = ""
         for a in row.get("artifacts", []):
             if a.get("stepId") == "stp_build01" and a.get("inlineText"):
-                texts.append(a["inlineText"])
+                found = a["inlineText"]
                 break
-    return texts
+        if found:
+            texts.append(found)
+        else:
+            missing.append({
+                "row": index,
+                "recordId": row.get("recordId") or row.get("record_id") or "",
+            })
+    return texts, missing
 
 
 def strip_fence(text):
@@ -140,13 +154,24 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--input", required=True, help="result-rows JSON（每行一篇；全部行合并）")
     ap.add_argument("--out-dir", default=".", help="输出目录")
+    ap.add_argument("--allow-partial", action="store_true",
+                    help="即使某个已完成行缺少构建产物也渲染（此时结果池不完整）")
     args = ap.parse_args()
 
     data = json.loads(Path(args.input).read_text(encoding="utf-8"))
     rows = data.get("rows", data if isinstance(data, list) else [])
-    texts = collect_build_artifacts(rows)
+    texts, missing = collect_build_artifacts(rows)
     if not texts:
         raise SystemExit("未找到 stp_build01 产物")
+    if missing:
+        detail = ", ".join(m.get("recordId") or f"row {m.get('row')}" for m in missing)
+        if not args.allow_partial:
+            raise SystemExit(
+                f"{len(missing)} 个已完成行缺少 stp_build01 产物（{detail}）；"
+                "渲染结果池将不完整。如确需渲染，请加 --allow-partial。"
+            )
+        print(f"WARNING: {len(missing)} 个已完成行缺少构建产物（{detail}）——正在渲染不完整的结果池",
+              file=sys.stderr)
     paper_sheet, reading_list = merge_builds(texts)
 
     paper_headers = [zh for _, zh in PAPER_COLS]
@@ -168,6 +193,9 @@ def main():
     out_dir.mkdir(parents=True, exist_ok=True)
     paper_path = out_dir / "论文清单.xlsx"
     list_path = out_dir / "阅读清单.xlsx"
+    for target in (paper_path, list_path):
+        if target.exists():
+            print(f"WARNING: overwriting existing file {target}", file=sys.stderr)
     write_xlsx(paper_path, [("论文清单", paper_headers, paper_rows)])
     write_xlsx(list_path, [("阅读清单", list_headers, list_rows)])
     print(f"已写出 {paper_path}（{len(paper_rows)} 行，合并自 {len(texts)} 个任务行）")

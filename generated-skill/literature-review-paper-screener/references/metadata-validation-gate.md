@@ -76,9 +76,9 @@ The following identifiers must refer to the same publication:
 - Journal
 - Publication Year
 
-If any identifier belongs to a different publication:
-`METADATA_STATUS = MISMATCH` — do not attempt to guess which field is correct. Return the
-record to the evidence collection stage for re-verification.
+If any identifier belongs to a different publication, the record's `metadata_status` is
+`MISMATCH` — do not attempt to guess which field is correct. Return the record to the evidence
+collection stage for re-verification.
 
 ### 5. Validation Outcome
 
@@ -112,10 +112,10 @@ Never construct, infer, or guess bibliographic metadata. Do not:
 
 Bibliographic identity requires authoritative source confirmation.
 
-### 7. Output Rule
+### 7. Outcome rule — which records may proceed
 
-Only records with `METADATA_STATUS = VERIFIED` **or** `METADATA_STATUS = PARTIALLY VERIFIED`
-may proceed to the next stage. Records marked `MISMATCH` or `INVALID` must be blocked before:
+Only records whose `metadata_status` is `VERIFIED` **or** `PARTIALLY VERIFIED` may proceed to
+the next stage. Records marked `MISMATCH` or `INVALID` must be blocked before:
 
 - the handoff file
 - Cloud upload

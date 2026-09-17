@@ -15,6 +15,7 @@ Writes .xlsx-compatible XML workbooks directly (no third-party packages).
 import argparse
 import json
 import re
+import sys
 import zipfile
 from pathlib import Path
 
@@ -30,16 +31,30 @@ LIST_COLS = ["priority", "reading_role", "citation", "title", "notes", "summary"
 
 
 def collect_build_artifacts(rows):
-    """Return the stp_build01 inlineText of every completed row."""
+    """Return (texts, missing).
+
+    `texts` holds the stp_build01 inlineText of every completed row that carries one. `missing`
+    lists the completed rows that carry no build artifact, so a partial pool is reported instead of
+    being rendered as if it were complete.
+    """
     texts = []
-    for row in rows:
+    missing = []
+    for index, row in enumerate(rows):
         if row.get("status") != "completed":
             continue
+        found = ""
         for a in row.get("artifacts", []):
             if a.get("stepId") == "stp_build01" and a.get("inlineText"):
-                texts.append(a["inlineText"])
+                found = a["inlineText"]
                 break
-    return texts
+        if found:
+            texts.append(found)
+        else:
+            missing.append({
+                "row": index,
+                "recordId": row.get("recordId") or row.get("record_id") or "",
+            })
+    return texts, missing
 
 
 def strip_fence(text):
@@ -134,13 +149,24 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--input", required=True, help="result-rows JSON (one row per paper; all rows are merged)")
     ap.add_argument("--out-dir", default=".", help="output directory")
+    ap.add_argument("--allow-partial", action="store_true",
+                    help="render even when a completed row has no build artifact (the pool is then incomplete)")
     args = ap.parse_args()
 
     data = json.loads(Path(args.input).read_text(encoding="utf-8"))
     rows = data.get("rows", data if isinstance(data, list) else [])
-    texts = collect_build_artifacts(rows)
+    texts, missing = collect_build_artifacts(rows)
     if not texts:
         raise SystemExit("no stp_build01 artifact found in input")
+    if missing:
+        detail = ", ".join(m.get("recordId") or f"row {m.get('row')}" for m in missing)
+        if not args.allow_partial:
+            raise SystemExit(
+                f"{len(missing)} completed row(s) have no stp_build01 artifact ({detail}); "
+                "the rendered pool would be incomplete. Re-run with --allow-partial to render anyway."
+            )
+        print(f"WARNING: {len(missing)} completed row(s) have no build artifact ({detail}) "
+              "— rendering a partial pool", file=sys.stderr)
     paper_sheet, reading_list = merge_builds(texts)
 
     paper_rows = [[p.get(c, "") for c in PAPER_COLS] for p in paper_sheet]
@@ -153,6 +179,9 @@ def main():
     out_dir.mkdir(parents=True, exist_ok=True)
     paper_path = out_dir / "PaperSheet.xlsx"
     list_path = out_dir / "ReadingList.xlsx"
+    for target in (paper_path, list_path):
+        if target.exists():
+            print(f"WARNING: overwriting existing file {target}", file=sys.stderr)
     write_xlsx(paper_path, [("PaperSheet", PAPER_COLS, paper_rows)])
     write_xlsx(list_path, [("ReadingList", LIST_COLS, list_rows)])
     print(f"wrote {paper_path} ({len(paper_rows)} rows, merged from {len(texts)} task rows)")

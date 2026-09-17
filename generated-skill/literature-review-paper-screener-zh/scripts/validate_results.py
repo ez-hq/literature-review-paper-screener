@@ -13,7 +13,9 @@ step artifacts of every completed row into one global view, and checks the produ
 5. Reading List uses the same pool, one Primary Reading Role per paper, no duplication.
 6. Citation / links present where available.
 7. No duplicate record IDs across the merged per-paper rows.
-8. Failures and partial results are explicit (rows that failed are surfaced, not silently dropped).
+8. Failures, incomplete rows, and partial results are explicit: a row that failed, or that is
+   `completed` yet lacks a required artifact, is reported rather than silently dropped, and
+   every submitted row is accounted for.
 9. Findings are reproducible (rerun condition = same evidence records + version).
 
 Rejects fabricated, mismatched, or unreviewable output. Writes review/validation-report.json
@@ -39,9 +41,16 @@ def pick_artifact(arts, step_ids):
 
 
 def collect_artifacts(rows):
-    """Return [{step_id: inlineText}] for every completed row (one dict per row)."""
+    """Return (sets, incomplete).
+
+    `sets` holds one {step_id: inlineText} dict per auditable row. A row is auditable only when it
+    is `completed` AND carries BOTH the screening artifact and the build artifact. A `completed`
+    row missing either one is recorded in `incomplete` so that it is reported and blocks the audit,
+    instead of being silently dropped from the rows the validator claims to have checked.
+    """
     sets = []
-    for row in rows:
+    incomplete = []
+    for index, row in enumerate(rows):
         if row.get("status") != "completed":
             continue
         arts = {}
@@ -50,9 +59,20 @@ def collect_artifacts(rows):
             txt = a.get("inlineText", "")
             if step and txt:
                 arts[step] = txt
-        if arts:
-            sets.append(arts)
-    return sets
+        missing = []
+        if not pick_artifact(arts, SCREEN_STEP_IDS):
+            missing.append("screening")
+        if not pick_artifact(arts, BUILD_STEP_IDS):
+            missing.append("build")
+        if missing:
+            incomplete.append({
+                "row": index,
+                "recordId": row.get("recordId") or row.get("record_id") or "",
+                "missing": missing,
+            })
+            continue
+        sets.append(arts)
+    return sets, incomplete
 
 
 def strip_code_fence(text):
@@ -99,7 +119,7 @@ def normalize_level(lvl):
     return lvl.strip()[0].upper() if lvl.strip() else ""
 
 
-def audit(screen, build, failed_rows=0):
+def audit(screen, build, failed_rows=0, incomplete=None, accounting=None):
     issues = []
     sr = screen.get("screening_records", [])
     er = screen.get("excluded_records", [])
@@ -109,6 +129,33 @@ def audit(screen, build, failed_rows=0):
     # 0. failed rows surfaced
     if failed_rows:
         issues.append(f"{failed_rows} row(s) did not complete — results are partial")
+
+    # 0b. a completed row that lacks a required artifact must never be skipped silently
+    for item in incomplete or []:
+        label = item.get("recordId") or f"row {item.get('row')}"
+        issues.append(
+            f"{label}: status=completed but missing required artifact(s) "
+            f"({', '.join(item.get('missing', []))}) — row was not audited"
+        )
+
+    # 0c. row accounting: every submitted row must be audited, incomplete, or failed
+    if accounting:
+        total = accounting.get("rowsTotal")
+        completed = accounting.get("rowsCompleted")
+        audited = accounting.get("rowsAudited")
+        incomplete_n = accounting.get("rowsIncomplete", 0)
+        if completed is not None and audited is not None and completed != audited + incomplete_n:
+            issues.append(
+                f"completed-row accounting mismatch: {completed} completed row(s) vs "
+                f"{audited} audited + {incomplete_n} incomplete"
+            )
+        if total is not None and audited is not None:
+            accounted = audited + incomplete_n + failed_rows
+            if accounted != total:
+                issues.append(
+                    f"row accounting mismatch: {total} submitted row(s) but only {accounted} "
+                    f"accounted for (audited={audited}, incomplete={incomplete_n}, failed={failed_rows})"
+                )
 
     # 1. evidence level + credibility rules on screening records
     for p in sr + er:
@@ -200,12 +247,16 @@ def main():
 
     data = json.loads(Path(args.input).read_text(encoding="utf-8"))
     rows = data.get("rows", data if isinstance(data, list) else [])
-    sets = collect_artifacts(rows)
-    if not sets:
-        print(json.dumps({"result": "FAIL", "reason": "no completed row artifacts found"}, indent=2))
-        sys.exit(1)
+    rows_total = len(rows)
+    completed_rows = sum(1 for r in rows if r.get("status") == "completed")
+    failed_rows = sum(1 for r in rows if r.get("status") != "completed")
 
-    failed_rows = sum(1 for r in rows if r.get("status") not in ("completed",))
+    sets, incomplete = collect_artifacts(rows)
+    if not sets:
+        reason = ("no completed row artifacts found" if not incomplete else
+                  f"no auditable row: all {len(incomplete)} completed row(s) lack required artifacts")
+        print(json.dumps({"result": "FAIL", "reason": reason, "incompleteRows": incomplete}, indent=2))
+        sys.exit(1)
 
     try:
         screen, build = merge_sets(sets)
@@ -213,14 +264,23 @@ def main():
         print(json.dumps({"result": "FAIL", "reason": str(e)}, indent=2))
         sys.exit(1)
 
-    issues = audit(screen, build, failed_rows)
+    accounting = {
+        "rowsTotal": rows_total,
+        "rowsCompleted": completed_rows,
+        "rowsAudited": len(sets),
+        "rowsIncomplete": len(incomplete),
+    }
+    issues = audit(screen, build, failed_rows, incomplete, accounting)
     passed = not issues
 
     audit_out = {
         "result": "PASS" if passed else "FAIL",
         "issues": issues,
-        "rowsTotal": len(rows),
-        "rowsCompleted": len(sets),
+        "rowsTotal": rows_total,
+        "rowsCompleted": completed_rows,
+        "rowsAudited": len(sets),
+        "rowsIncomplete": len(incomplete),
+        "incompleteRows": incomplete,
         "rowsFailed": failed_rows,
         "screeningRecords": len(screen.get("screening_records", [])),
         "excludedRecords": len(screen.get("excluded_records", [])),
@@ -247,6 +307,9 @@ def main():
 
     out_dir = Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
+    for target in (out_dir / "local-audit.json", out_dir / "validation-report.json"):
+        if target.exists():
+            print(f"WARNING: overwriting existing file {target}", file=sys.stderr)
     (out_dir / "local-audit.json").write_text(json.dumps(audit_out, indent=2, ensure_ascii=False), encoding="utf-8")
     (out_dir / "validation-report.json").write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8")
 

@@ -1,15 +1,28 @@
 ---
 name: literature-review-paper-screener
+version: 1.4.6
 description: >-
-  Literature Review Paper Screener V1.1. The local agent (internet-enabled, free) searches for literature,
+  Literature Review Paper Screener V1.4.6. The local agent (internet-enabled, free) searches for literature,
   collects evidence, builds per-paper Evidence Records with Evidence Availability Levels A-D, submits ONE
   paper per workbook row to the private LoomLoom Cloud template (rows run as independent parallel tasks, so
   screening never exceeds the platform per-activity timeout), then audits and merges the returned screening
   results and renders Excel Paper Sheet + Reading List. Cloud has no internet access; you gather the evidence
-  and it evaluates it. Literature Review task type only; Medical Science focus.
+  and it evaluates it. Use it for Literature Review tasks in the Medical Science focus only;
+  do not use it as a general citation manager, for other task types, or for disciplines it is
+  not configured for.
+  The bundled files are local helpers only — a pre-flight checker, a result validator, and an
+  Excel renderer. All searching, downloading, and cloud submission is performed by the agent
+  through the loomloom CLI, which this skill requires.
+metadata:
+  openclaw:
+    requires:
+      bins:
+        - python3
+        - loomloom
+    homepage: https://github.com/ez-hq/literature-review-paper-screener/releases
 ---
 
-# Literature Review Paper Screener — Local Agent Skill (V1.1)
+# Literature Review Paper Screener — Local Agent Skill (V1.4.6)
 
 The **Local Agent** is the internet research layer of the Literature Review Paper Screener. You have
 internet access and do **all** research and evidence gathering. The **Cloud** (a private LoomLoom
@@ -41,9 +54,35 @@ paper in seconds. The results are **merged locally** back into one Paper Sheet +
 - `loomloom` Skill + CLI installed and `loomloom doctor` reports `healthy=true`
 - A CogFoundry (or configured) LoomLoom account with balance for cloud runs
 
+## Bundled files and what each one does
+
+This package ships documentation and three local helper scripts. None of them opens a network
+connection, calls the cloud, or screens anything:
+
+| Path | What it is | Network |
+|---|---|---|
+| `README.md`, `NOTICE`, `LICENSE` | Package provenance and licensing | none |
+| `references/architecture.md` | Search and evidence-collection rules | none |
+| `references/evidence-package-schema.md` | The per-paper Evidence Record shape handed to the cloud | none |
+| `references/metadata-validation-gate.md` | The bibliographic-identity check run before handoff | none |
+| `agents/openai.yaml` | Descriptor metadata for platforms that read one | none |
+| `scripts/check_evidence.py` | Local pre-flight: validates one Evidence Record's JSON and fields before pasting | none |
+| `scripts/validate_results.py` | Local audit of returned results: merges the per-paper rows, checks the product contract | none |
+| `scripts/render_excel.py` | Local renderer: writes the Excel Paper Sheet and Reading List | none |
+
+Searching, evidence collection, the metadata gate, workbook filling, and cloud submission are
+performed by **the agent** using its own tools plus the `loomloom` CLI declared in this skill's
+frontmatter. They are not implemented in the bundled scripts.
+
+**Files these scripts read and write.** Read: the cloud result export passed to `--input`
+(`result-rows.json`) and, for the pre-flight checker, one Evidence Record JSON. Written: the audit
+outputs `review/local-audit.json` and `review/validation-report.json`, plus the deliverables
+`PaperSheet.xlsx` and `ReadingList.xlsx` under `--out-dir`. Nothing else is read or written, no
+network request is made, and any other path is out of scope for this skill.
+
 ## Before you start: pick language & payment channel
 
-1. **Installed zip => cloud output language.** You are in the English package, so cloud output is **English**. Want live Simplified-Chinese output? Install the `-zh` zip instead.
+1. **Cloud output language — confirm it with the user.** The package only sets the default: this is the English package, so the default is **English**; the `-zh` package is the Simplified-Chinese counterpart. Ask the user which language they want for the delivered comments and summaries before the run. If the assignment requires another language, keep this package and write those fields in the required language (see the language rule in step 5); if the user wants a Chinese default throughout, point them at the `-zh` package.
 2. **Which Cloud to pay** (run cost is charged where you execute):
    - Domestic / RMB: Shengsuanyun, CNY 0.7 / task
    - Overseas / USD: CogFoundry, USD 0.10 / task
@@ -69,10 +108,10 @@ which platform to use — never decide on their behalf. Payment method is the de
 | Platform | Profile | Evidence input mode | Market fee | When to pick |
 |---|---|---|---|---|
 | CogFoundry | `cogfoundry` | Paste the single-paper record JSON into the cell (v2 platform: upload port removed) | USD 0.10 / task | Credit-card / international payment (USD) — **English output** |
-| ShengSuanYun (胜算云) | `shengsuanyun` | Paste the single-paper record JSON into the cell (no upload port on v2) | CNY 0.70 / task | China payment (WeChat/Alipay/RMB) — **Chinese-language listing (文献智筛); outputs in Simplified Chinese** |
+| ShengSuanYun | `shengsuanyun` | Paste the single-paper record JSON into the cell (no upload port on v2) | CNY 0.70 / task | China payment (WeChat/Alipay/RMB) — **Chinese-language listing; outputs in Simplified Chinese** |
 
 Ask in plain language, e.g.: *"Which platform should I run on? CogFoundry (USD — credit card,
-English output) or ShengSuanYun (胜算云, CNY — Chinese output)?"*
+English output) or ShengSuanYun (CNY — Chinese output)?"*
 
 Then switch the active profile and verify health before proceeding:
 
@@ -156,17 +195,21 @@ references/evidence-package-schema.md for the exact shape), named like `handoff_
 single cloud task small enough to finish inside the platform activity timeout. Do not bundle all
 papers into one file.
 
-**Language rule (mandatory): the Evidence Record is written in English, always.**
+**Language rule: the Evidence Record defaults to English.**
 
-- Literature content (abstract, full-text excerpts, structured info) is academic and in English:
-  keep it as-is — **never translate article content into another language** (e.g. do NOT write
-  "在 4075 名 UKPDS 患者中…" for an English paper; keep the original English).
-- Every field the local agent writes must be English: `available_content`, `available_evidence`,
-  `missing_evidence`, `assessment_limitations`, `abstract_or_available_content`,
-  `metadata_gate_notes`, and any notes.
-- The language the user talks in does **not** matter: the record is English. If the user is
-  non-English-speaking, still write English (academic output must be English end-to-end:
-  handoff → Cloud summary/notes → Paper Sheet → Reading List).
+- **Default.** English is the default for every field the local agent writes:
+  `available_content`, `available_evidence`, `missing_evidence`, `assessment_limitations`,
+  `abstract_or_available_content`, `metadata_gate_notes`, and any notes. The default comes from
+  the cloud template bound to this package, which is configured for English output, so English
+  input keeps the cloud summary/notes, Paper Sheet, and Reading List consistent end-to-end.
+- **Override.** Assignment requirements take precedence over the default. If the user's assignment
+  requires the delivered comments and summaries in another language, write those fields in that
+  language and say so in the handoff notes. If the user simply asks for a different output
+  language, honour the request and record which language was used.
+- Literature content (abstract, full-text excerpts, structured info) is never translated: keep the
+  paper's original language as-is (keep an English paper's English).
+- Want a different package default? The `-zh` package is the Simplified-Chinese counterpart of
+  this one, and installing it makes Chinese the package default.
 
 ### 5.5 Metadata Validation Gate (mandatory, before handoff)
 
@@ -196,6 +239,30 @@ DAG, or workbook batching.
 
 Optional pre-flight: run `python3 scripts/check_evidence.py <evidence.json>` before pasting to catch JSON/field errors locally (no cloud, no cost).
 
+### 5.6 What leaves your machine — cloud handoff, privacy, and data minimization
+
+Steps 1–5.5 (search, evidence collection, the metadata gate, the pre-flight check) run entirely on
+this machine. The handoff at step 6 is the first and only place where data leaves it. Before you
+paste or upload anything:
+
+1. **Disclose before you send.** Tell the user, in plain language, which platform will receive the
+   data, that it is a third-party cloud service, and what the run will cost. A confirmation about
+   *platform and fee* alone is not consent to transfer data — ask for the data transfer explicitly.
+2. **Minimize what you send.** Send only what screening needs: the per-paper Evidence Record fields
+   defined in `references/evidence-package-schema.md`. Strip anything else from the payload —
+   student names, student numbers, email addresses, phone numbers, home addresses, ID numbers,
+   grades, and any other personal or identifying detail. If the research question or the assignment
+   brief itself contains such detail, replace it with a neutral placeholder before it reaches the
+   cloud and tell the user you did so.
+3. **Local alternative.** Everything up to and including the Evidence Records, the metadata gate
+   ledger, and the pre-flight check is local and free. If the user does not consent to sending data
+   to a third-party cloud, stop here and deliver the local artifacts (per-paper Evidence Records plus
+   the gate ledger), stating plainly that no cloud screening was run and therefore no Paper Sheet or
+   Reading List was produced. Never send the data anyway, and never substitute a local guess for a
+   screening result.
+4. **No credentials in the payload.** Never include API tokens, keys, or account identifiers in any
+   handoff payload.
+
 ### 6. Prepare the cloud workbook (one row per paper)
 
 Download the workbook for the exact version:
@@ -223,7 +290,7 @@ Fill **one row per paper** (N papers → N rows):
     # -> asset id for row 2  ... and so on
     ```
 
-  - **ShengSuanYun (胜算云)**: its v2 TemplateSpec exposes no text-upload port, so paste the
+  - **ShengSuanYun**: its v2 TemplateSpec exposes no text-upload port, so paste the
     per-paper record as **compact single-line JSON** (see references/evidence-package-schema.md)
     directly into the cell. Keep it under ~25,000 chars per cell (Excel cell limit is 32,767).
 
@@ -251,7 +318,7 @@ Do **not** submit yet.
 
 Before anything else, **re-confirm the platform with the owner** (even if chosen in step 1.5):
 
-- **ShengSuanYun (胜算云)** — CNY ¥0.70/task, China payment (WeChat/Alipay/RMB)
+- **ShengSuanYun** — CNY ¥0.70/task, China payment (WeChat/Alipay/RMB)
 - **CogFoundry** — USD $0.10/task, credit-card payment
 
 Then present the full numbers and get an explicit confirmation, phrased as: **"Platform: <X>.
@@ -307,9 +374,10 @@ papers searched, screened, included, excluded (with reasons), the evidence-level
 (A/B/C/D), and how many cloud tasks ran. Point out evidence-limited papers (Levels C/D) and
 preliminary classifications.
 
-**Before delivery, verify the outputs are fully English** — scan the rendered data and the handoff
-for non-English (CJK) characters; if any are found, return to step 5 (evidence collection),
-rewrite the offending fields in English, and re-run the affected stages:
+**Before delivery, verify the outputs are in the agreed language** (English by default, or the
+assignment-required language when one was specified) — scan the rendered data and the handoff for
+text in a different language; if any is found, return to step 5 (evidence collection), rewrite the
+offending fields, and re-run the affected stages:
 
 ```bash
 # quick check: prints any records containing CJK characters in the rendered output
@@ -322,17 +390,19 @@ for f in sys.argv[1:]:
 " result-rows.json handoff_p*.json
 ```
 
-## Rules you must not break
+## Operating rules
 
-- **Ask the user which platform before EVERY cloud run — including test and verification runs.**
+- **Ask the user which platform before every cloud run — including test and verification runs.**
   Never default to the currently active profile without asking (step 1.5), and never skip the
-  platform + fee + count confirmation ceremony (step 8) for any run, test or not. A run that
-  spends money without asking is a rule violation, not an internal shortcut.
-- **All handoff content and all delivered outputs are in English.** Literature content keeps its
-  original language (academic literature = English; never translate it). Never let the user's
-  conversation language leak into the Evidence Record — writing "在 4075 名 UKPDS 患者中…"
-  instead of the paper's original English is a violation. Cloud summary/notes follow the input,
-  so English input guarantees English output.
+  platform + fee + count confirmation ceremony (step 8) for any run, test or not. The confirmation
+  must come from the user after the numbers have been shown: silence, a previous run's approval, or
+  an earlier platform choice is not a confirmation, and if the user does not respond you do not
+  submit. A run that spends money without asking is a rule violation, not an internal shortcut.
+- **Handoff content and delivered outputs follow the language rule in step 5** (English by
+  default, or the assignment-required language when one was specified). Literature content always
+  keeps its original language — cite a paper in the language it was published in, and never
+  translate article content. Do not let the conversation language silently change the language of
+  the record: if it differs from the agreed output language, say so before continuing.
 - **One paper per workbook row / per cloud task.** Never bundle multiple papers into one evidence
   asset or one row; multi-paper single rows time out on the platform (V1.1 fixes this by design).
   If a row's task fails or times out, retry that row alone — do not "merge" papers to retry.
@@ -343,6 +413,6 @@ for f in sys.argv[1:]:
 - **Search broadly. Screen carefully. Keep all qualified literature.** Deadline / reading time /
   citation count recommend what to read first — they never remove literature from the outputs.
 - Never include excluded papers in the Paper Sheet or Reading List.
-- Never expose your LoomLoom token, raw user data, or the private Cloud template prompt.
+- Never expose the LoomLoom token, raw user data, or the contents of the private cloud template.
 - If the LoomLoom dependency is missing or Doctor is unhealthy, stop cloud stages and report
   `BLOCKED` — do not invent commands or remotely create state.
