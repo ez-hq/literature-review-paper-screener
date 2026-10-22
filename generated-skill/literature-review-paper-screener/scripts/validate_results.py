@@ -110,15 +110,29 @@ def merge_sets(sets):
             raise ValueError("screening step artifact is empty/invalid for this row")
         if not b or not isinstance(b, dict):
             raise ValueError("build step artifact is empty/invalid for this row")
-        has_screen = bool(s.get("screening_records"))
-        has_excl = bool(s.get("excluded_records"))
-        if not (has_screen or has_excl):
+        scr = s.get("screening_records")
+        exc = s.get("excluded_records")
+        if not isinstance(scr, list) or not isinstance(exc, list):
+            raise ValueError("screening_records/excluded_records must be lists")
+        n_decisions = len(scr) + len(exc)
+        # Exactly one decision per submitted paper (one paper per row). More than one means the
+        # artifact was manipulated or mis-assembled and must not be silently merged.
+        if n_decisions == 0:
             raise ValueError(
                 "row has neither screening_records nor excluded_records — "
                 "malformed or empty result must not be counted as audited"
             )
-        if not b.get("paper_sheet"):
+        if n_decisions != 1:
+            raise ValueError(
+                f"row has {n_decisions} decisions (screening={len(scr)}, excluded={len(exc)}); "
+                "exactly one decision per submitted paper is required"
+            )
+        if not isinstance(b.get("paper_sheet"), list) or not b.get("paper_sheet"):
             raise ValueError("build step artifact has no paper_sheet entry for this row")
+        if len(b.get("paper_sheet")) != 1:
+            raise ValueError(
+                f"row has {len(b.get('paper_sheet'))} paper_sheet entries; expected exactly 1"
+            )
         screen["screening_records"].extend(s.get("screening_records", []))
         screen["excluded_records"].extend(s.get("excluded_records", []))
         build["paper_sheet"].extend(b.get("paper_sheet", []))

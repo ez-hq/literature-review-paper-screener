@@ -1,8 +1,8 @@
 ---
 name: literature-review-paper-screener
-version: 1.4.8
+version: 1.4.9
 description: >-
-  Literature Review Paper Screener V1.4.8. The local agent (internet-enabled, free) searches for literature,
+  Literature Review Paper Screener V1.4.9. The local agent (internet-enabled, free) searches for literature,
   collects evidence, builds per-paper Evidence Records with Evidence Availability Levels A-D, submits ONE
   paper per workbook row to the private LoomLoom Cloud template (rows run as independent parallel tasks, so
   screening never exceeds the platform per-activity timeout), then audits and merges the returned screening
@@ -110,15 +110,14 @@ Tell the user (in their own language), ALL of this:
 
 1. **Cloud is required.** This Skill's local part only searches and gathers evidence; the
    actual screening runs on LoomLoom Cloud, which is a **paid** service.
-2. **LoomLoom must be installed locally.** It is NOT installed automatically with this Skill.
-   Give them the install options:
-   - **Option 1 — manual terminal command:**
-     ```bash
-     npm install -g @cogfoundry/loomloom
-     ```
-   - **Option 2 — let the agent install it for them.** The agent runs the install on request;
-     the user then completes login themselves interactively (see below).
-   - For production, prefer pinning a reviewed release version.
+2. **LoomLoom must be installed locally — the user installs it themselves (prerequisite).**
+   It is NOT installed automatically with this Skill, and the agent does NOT run global
+   installations. Tell the user to install it in their own terminal:
+   ```bash
+   npm install -g @cogfoundry/loomloom
+   ```
+   For production, prefer pinning a reviewed release version. Do not proceed until the user
+   confirms installation is complete.
 3. **Verify the install works:**
    ```bash
    loomloom doctor --output json
