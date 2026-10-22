@@ -1,6 +1,6 @@
 ---
 name: literature-review-paper-screener
-version: 1.4.6
+version: 1.4.7
 description: >-
   Literature Review Paper Screener V1.4.6. The local agent (internet-enabled, free) searches for literature,
   collects evidence, builds per-paper Evidence Records with Evidence Availability Levels A-D, submits ONE
@@ -51,8 +51,10 @@ paper in seconds. The results are **merged locally** back into one Paper Sheet +
 ## Prerequisites
 
 - Python 3.9+ (validator/render scripts)
-- `loomloom` Skill + CLI installed and `loomloom doctor` reports `healthy=true`
-- A CogFoundry (or configured) LoomLoom account with balance for cloud runs
+- `loomloom` Skill + CLI installed — install with `npm install -g @cogfoundry/loomloom`
+  (or let the agent install it), then verify with `loomloom doctor --output json` (`healthy=true`)
+- A LoomLoom account on the platform you run on (CogFoundry or Shengsuanyun) with balance for cloud runs
+- The workflow begins with a **mandatory cloud onboarding** — see "0. Cloud onboarding" below
 
 ## Bundled files and what each one does
 
@@ -91,6 +93,41 @@ network request is made, and any other path is out of scope for this skill.
 
 ## Workflow
 
+### 0. Cloud onboarding (MANDATORY — before anything else)
+
+**This Skill requires LoomLoom Cloud to screen papers — there is no fully-local mode.**
+Before starting any work, you MUST tell the user this, and confirm they are willing to
+proceed on the paid cloud path. Do not skip this even if they seem ready.
+
+Tell the user (in their own language), ALL of this:
+
+1. **Cloud is required.** This Skill's local part only searches and gathers evidence; the
+   actual screening runs on LoomLoom Cloud, which is a **paid** service.
+2. **LoomLoom must be installed locally.** It is NOT installed automatically with this Skill.
+   Give them the install options:
+   - **Option 1 — manual terminal command:**
+     ```bash
+     npm install -g @cogfoundry/loomloom
+     ```
+   - **Option 2 — let the agent install it for them.** The agent runs the install on request;
+     the user then completes login themselves interactively (see below).
+   - For production, prefer pinning a reviewed release version.
+3. **Verify the install works:**
+   ```bash
+   loomloom doctor --output json
+   ```
+4. **The user needs a LoomLoom account on the platform they will run on** (CogFoundry or
+   Shengsuanyun — see step 1.5). They should follow that platform's own account/sign-up flow.
+5. **The user logs in interactively with `loomloom login`** — the agent never sees or handles
+   their credentials.
+6. **Cloud runs are paid** (CogFoundry USD 0.10 / task; Shengsuanyun CNY 0.70 / task).
+   Billing and balance follow the platform's own payment flow. Confirm the estimated cost
+   with the user before running.
+
+> If the user does not want to install LoomLoom, has no account, or does not accept the paid
+> cloud path, stop and explain that this Skill cannot complete screening without Cloud. Do not
+> silently substitute another method.
+
 ### 1. Install/verify LoomLoom
 
 ```bash
@@ -98,7 +135,8 @@ loomloom doctor --output json
 ```
 
 If `healthy=false`, complete authentication first (browser login preferred: `loomloom login`;
-fallback API token in the platform console). Do not proceed to cloud steps without a healthy Doctor.
+follow the platform's own sign-in flow if a token is needed). Do not proceed to cloud steps
+without a healthy Doctor.
 
 ### 1.5 Ask the user which Cloud platform to run on
 
