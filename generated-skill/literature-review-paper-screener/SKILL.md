@@ -1,8 +1,8 @@
 ---
 name: literature-review-paper-screener
-version: 1.4.7
+version: 1.4.8
 description: >-
-  Literature Review Paper Screener V1.4.6. The local agent (internet-enabled, free) searches for literature,
+  Literature Review Paper Screener V1.4.8. The local agent (internet-enabled, free) searches for literature,
   collects evidence, builds per-paper Evidence Records with Evidence Availability Levels A-D, submits ONE
   paper per workbook row to the private LoomLoom Cloud template (rows run as independent parallel tasks, so
   screening never exceeds the platform per-activity timeout), then audits and merges the returned screening
@@ -20,6 +20,13 @@ metadata:
         - python3
         - loomloom
     homepage: https://github.com/ez-hq/literature-review-paper-screener/releases
+permissions:
+  # Declared tool scope (least privilege): research + local helpers + user-confirmed cloud.
+  network: public literature search / metadata services (PubMed, Crossref) — local research only
+  web: WebSearch, WebFetch (literature search, retrieval, metadata lookup)
+  files: bundled scripts + run output directory only (validator, renderer, Excel output)
+  shell: python3 (bundled helper scripts), loomloom CLI (cloud run, only after explicit user confirmation)
+  allowed-tools: [WebSearch, WebFetch, python3, loomloom]
 ---
 
 # Literature Review Paper Screener — Local Agent Skill (V1.4.6)
@@ -279,9 +286,14 @@ Optional pre-flight: run `python3 scripts/check_evidence.py <evidence.json>` bef
 
 ### 5.6 What leaves your machine — cloud handoff, privacy, and data minimization
 
-Steps 1–5.5 (search, evidence collection, the metadata gate, the pre-flight check) run entirely on
-this machine. The handoff at step 6 is the first and only place where data leaves it. Before you
-paste or upload anything:
+Steps 1–5.5 (search, evidence collection, the metadata gate, the pre-flight check) run on this
+machine as local artifacts. **Two kinds of outbound request exist and both must be disclosed:**
+(a) `WebSearch`/`WebFetch` and metadata lookups (PubMed / Crossref) send the **research queries and
+identifiers** you derive from the topic to external services **during research, before step 6** —
+minimize what you put into queries (avoid names, student numbers, or other personal detail), and
+tell the user which external services the research will contact; and (b) the **cloud handoff at step
+6**, which sends the Evidence Records to the selected LoomLoom platform. Declining (b) does **not**
+undo requests already made in (a) — say so plainly. Before you paste or upload anything for (b):
 
 1. **Disclose before you send.** Tell the user, in plain language, which platform will receive the
    data, that it is a third-party cloud service, and what the run will cost. A confirmation about
@@ -292,12 +304,14 @@ paste or upload anything:
    grades, and any other personal or identifying detail. If the research question or the assignment
    brief itself contains such detail, replace it with a neutral placeholder before it reaches the
    cloud and tell the user you did so.
-3. **Local alternative.** Everything up to and including the Evidence Records, the metadata gate
-   ledger, and the pre-flight check is local and free. If the user does not consent to sending data
-   to a third-party cloud, stop here and deliver the local artifacts (per-paper Evidence Records plus
-   the gate ledger), stating plainly that no cloud screening was run and therefore no Paper Sheet or
-   Reading List was produced. Never send the data anyway, and never substitute a local guess for a
-   screening result.
+3. **Local alternative (cloud handoff only).** The Evidence Records, the metadata gate ledger, and
+   the pre-flight check are local artifacts, and skipping the step-6 handoff avoids **cloud** transfer
+   only — it does **not** mean "no third-party disclosure at all", because the research queries in (a)
+   already contacted external search/metadata services. If the user does not consent to the cloud
+   handoff, stop here and deliver the local artifacts (per-paper Evidence Records plus the gate
+   ledger), stating plainly that no cloud screening was run and therefore no Paper Sheet or Reading
+   List was produced. Never send the data anyway, and never substitute a local guess for a screening
+   result.
 4. **No credentials in the payload.** Never include API tokens, keys, or account identifiers in any
    handoff payload.
 
@@ -430,6 +444,12 @@ for f in sys.argv[1:]:
 
 ## Operating rules
 
+- **Human-in-the-loop (global, mandatory — covers every high-impact action).** This Skill never
+  auto-executes actions that spend money, send data to a third party, or irreversibly change
+  files. Every cloud submission, every data handoff, and every file overwrite requires an
+  explicit confirmation from the user in the current conversation, after the relevant numbers
+  (platform, fee, paper count) have been shown. Silence, a previous approval, or an earlier
+  choice is NOT a confirmation.
 - **Ask the user which platform before every cloud run — including test and verification runs.**
   Never default to the currently active profile without asking (step 1.5), and never skip the
   platform + fee + count confirmation ceremony (step 8) for any run, test or not. The confirmation

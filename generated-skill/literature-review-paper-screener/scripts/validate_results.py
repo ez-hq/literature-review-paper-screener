@@ -104,6 +104,21 @@ def merge_sets(sets):
             b = parse_json(pick_artifact(arts, BUILD_STEP_IDS), "build step")
         except ValueError as e:
             raise ValueError(f"build step: {e}")
+        # Schema guard: an empty/{} artifact must NOT silently pass as an audited row.
+        # Each row must carry exactly one screening or exclusion decision and a paper_sheet entry.
+        if not s or not isinstance(s, dict):
+            raise ValueError("screening step artifact is empty/invalid for this row")
+        if not b or not isinstance(b, dict):
+            raise ValueError("build step artifact is empty/invalid for this row")
+        has_screen = bool(s.get("screening_records"))
+        has_excl = bool(s.get("excluded_records"))
+        if not (has_screen or has_excl):
+            raise ValueError(
+                "row has neither screening_records nor excluded_records — "
+                "malformed or empty result must not be counted as audited"
+            )
+        if not b.get("paper_sheet"):
+            raise ValueError("build step artifact has no paper_sheet entry for this row")
         screen["screening_records"].extend(s.get("screening_records", []))
         screen["excluded_records"].extend(s.get("excluded_records", []))
         build["paper_sheet"].extend(b.get("paper_sheet", []))
@@ -167,8 +182,21 @@ def audit(screen, build, failed_rows=0, incomplete=None, accounting=None):
             issues.append(f"{p.get('record_id')}: missing content_credibility_status")
         else:
             ccl = cc.casefold()
-            if normalize_level(lvl) == "D" and not any(m in ccl for m in ("not available", "unavailable", "cannot assess", "insufficient evidence", "no content", "unable")) and "assess" in ccl:
-                issues.append(f"{p.get('record_id')}: level-D (metadata-only) but content_credibility_status {cc!r} implies assessable content")
+            UNAVAILABLE_MARKERS = ("not available", "unavailable", "cannot assess", "insufficient evidence",
+                                   "no content", "unable", "not assessable", "not-assessable")
+            is_unavailable = any(m in ccl for m in UNAVAILABLE_MARKERS)
+            # Level-D (metadata-only) must be reported as not-assessable, not as a content judgement.
+            if normalize_level(lvl) == "D" and not is_unavailable:
+                issues.append(
+                    f"{p.get('record_id')}: level-D (metadata-only) must use an unavailable/not-assessable "
+                    f"content_credibility_status, got {cc!r}"
+                )
+            # A "Fail" driven solely by missing content must be recorded as not-assessable, not a quality fail.
+            if ("fail" in ccl) and is_unavailable:
+                issues.append(
+                    f"{p.get('record_id')}: credibility marked 'Fail' but reason is unavailable content — "
+                    "use a not-assessable outcome instead of failing the paper for missing content"
+                )
 
     # 1b. no duplicate record IDs across merged rows
     seen_ids = {}

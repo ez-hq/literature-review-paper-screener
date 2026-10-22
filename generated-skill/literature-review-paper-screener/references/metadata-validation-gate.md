@@ -129,8 +129,16 @@ the next stage. Records marked `MISMATCH` or `INVALID` must be blocked before:
 1. **Where it runs:** after evidence collection (Skill step 5), before writing each
    `handoff_p<record_id>.json` (step 6). One gate pass per unique candidate.
 2. **Record in the handoff record:** add
-   `"metadata_status": "VERIFIED" | "PARTIALLY VERIFIED"` and, for partially verified records,
-   mark the unverified identifiers explicitly (e.g. `"doi": "NOT VERIFIED"`).
+   `"metadata_status": "VERIFIED" | "PARTIALLY VERIFIED" | "UNCONFIRMED"` and, for partially
+   verified or unconfirmed records, mark the unverified identifiers explicitly (e.g.
+   `"doi": "NOT VERIFIED"`). **Status semantics (do not conflate):**
+   - `VERIFIED` — identity confirmed against an authoritative source (DOI/PMID resolved).
+   - `PARTIALLY VERIFIED` — some identifiers confirmed, others not; the record is real but
+     incomplete. Allowed into handoff **only** with the unverified identifiers marked.
+   - `UNCONFIRMED` — **no authoritative confirmation of the publication's existence/identity**
+     could be obtained at all (e.g. unindexed preprint, hallucination risk). These records are
+     **excluded from automated handoff and cloud screening** and surfaced to the owner for a
+     decision. Never label an unconfirmed record `PARTIALLY VERIFIED` to let it through.
 3. **Outcome ledger:** keep a short per-run gate ledger (record_id → status → evidence checked)
    so the final delivery can state how many records passed the gate.
 4. **MISMATCH/INVALID handling:** return to evidence collection for re-verification of that
@@ -140,9 +148,11 @@ the next stage. Records marked `MISMATCH` or `INVALID` must be blocked before:
 5. **Records with no DOI/PMID:** the publication may still be confirmed via authoritative
    title(+author+year) lookup in Crossref/PubMed. If no authoritative confirmation can be
    obtained at all (e.g. very new preprints, niche publications not indexed by either database):
-   do not mark VERIFIED; mark `PARTIALLY VERIFIED` with the identifiers set to `NOT VERIFIED`,
-   keep the record (never silently drop valid literature), and flag it in the gate ledger and
-   delivery summary for owner awareness. Owner decision overrides per record.
+   **do not mark VERIFIED and do not mark PARTIALLY VERIFIED** — mark `UNCONFIRMED`, keep the
+   record (never silently drop valid literature), **exclude it from automated handoff and cloud
+   screening**, and surface it to the owner in the gate ledger and delivery summary for an
+   explicit keep/drop decision. Owner decision overrides per record, and a kept UNCONFIRMED record
+   is only sent to the cloud if the owner explicitly approves it after being shown the risk.
 6. **Gate ledger:** record per run: record_id → status → identifiers checked → outcome notes.
    The delivery summary states how many records passed, how many were blocked, and how many
    await owner decision.
