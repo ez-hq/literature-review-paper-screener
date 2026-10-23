@@ -1,6 +1,6 @@
 ---
 name: literature-review-paper-screener-zh
-version: 1.4.6
+version: 1.5.0
 description: >-
   文献智筛（中文版）V1.4.6。本地 Agent（可联网、免费）检索文献、采集证据、构建带证据可用级别（A-D）的单篇证据记录，
   提交给私有的胜算云云端模板进行全中文筛选，再校验并合并云端结果，输出中文论文清单与阅读清单 Excel。云端无互联网，
@@ -53,6 +53,23 @@ metadata:
 
 ## 工作流
 
+### 0. 云端上手（强制 — 开工前必须先说清）
+
+**本 Skill 必须走 LoomLoom 云端完成文献筛选，没有纯本地模式。**
+开始任何工作前，你必须先向用户说明以下全部内容，并确认用户愿意走付费云端路径：
+
+1. **必须用云端**：本地部分只做检索与证据采集，真正的筛选在 LoomLoom 云端执行，是**付费**服务。
+2. **必须先装 LoomLoom**（Skill 不会自动安装）。由**用户自己在终端安装**（agent 不执行全局安装）：
+   ```bash
+   npm install -g @cogfoundry/loomloom
+   ```
+   装好后验证：`loomloom doctor --output json`，须为 `healthy=true`。
+3. **需要 LoomLoom 账号**：在所选平台（中文场景用胜算云）按平台自己的注册流程开通账号。
+4. **用户用 `loomloom login` 交互式登录** — agent 不接触、不保存用户凭据。
+5. **费用**：胜算云 ¥0.70/任务、CogFoundry $0.10/任务；费用与余额走平台自己的支付流程。运行前必须把预估费用报给用户并确认。
+
+> 若用户不愿安装、无账号或不接受付费云端：停下并说明本 Skill 无法完成筛选，**不得**用其他方式替代。
+
 ### 1. 安装/验证 loomloom
 
 ```bash
@@ -71,15 +88,16 @@ loomloom server use shengsuanyun
 loomloom doctor --output json
 ```
 
-### 2. 了解模板绑定
+### 2. 了解市场 Listing（买家路径，不要臆造 ID）
 
-中文版编排**私有模板版本**（不要臆造 ID）：
+本 Skill 通过**市场 Listing** 运行（买家自己的账号付费），不走私有模板：
 
-- 模板 ID：`a9e2cf68-e1c5-4b01-ab40-85dc6d44d893`
-- 版本 ID：`1cd0f04f-0db9-4470-a5ce-23bb2177a9d8`（v4 中文版，文献智筛：全中文枚举 + 纯中文输出约束）
-- 名称：`文献智筛（中文版）`
+| 平台 | Listing ID | 市场费用 |
+|---|---|---|
+| 胜算云（中文版默认） | `01a0465b-5d0e-7279-bcea-f206544521b0` | ¥0.70 / 任务 |
+| CogFoundry（国际） | `01a0423e-fdcd-7428-b388-4711b67b0e03` | $0.10 / 任务 |
 
-运行前用 `loomloom template-spec get a9e2cf68-e1c5-4b01-ab40-85dc6d44d893` 核实。绑定变更时询问所有者，绝不猜 ID。
+用 `loomloom market workbook download <Listing ID>` 核实绑定。绑定变更时询问所有者，绝不猜 ID。
 
 ### 3. 收集用户输入（对话式）
 
@@ -188,11 +206,16 @@ frontmatter 中声明的 `loomloom` 命令行完成，并非由包内脚本实�
 
 ### 6. 准备云端工作簿（每行一篇）
 
-下载精确版本的工作簿：
+下载该 Listing 的输入工作簿：
 
 ```bash
-loomloom template-spec download-workbook a9e2cf68-e1c5-4b01-ab40-85dc6d44d893 b394726b-6e18-429c-a9c0-53daf6f3c2eb
+# 胜算云（中文版默认）
+loomloom market workbook download 01a0465b-5d0e-7279-bcea-f206544521b0 --output-file input.xlsx -s https://loomloom.shengsuanyun.com/loom/v1
+# CogFoundry（国际）
+loomloom market workbook download 01a0423e-fdcd-7428-b388-4711b67b0e03 --output-file input.xlsx -s https://loomloom.cogfoundry.ai/loom/v1
 ```
+
+**先删除工作簿自带的示例行**（否则会被当作额外付费任务提交）。填完后核对：数据行数 = 文献篇数。
 
 **每篇文献一行**（N 篇 → N 行）：
 
@@ -207,15 +230,15 @@ loomloom template-spec download-workbook a9e2cf68-e1c5-4b01-ab40-85dc6d44d893 b3
 ### 7. 校验与预检（只读）
 
 ```bash
-loomloom template-spec validate-workbook <模板ID> <版本ID> <filled.xlsx>
-loomloom template-spec precheck-workbook <模板ID> <版本ID> <filled.xlsx>
+loomloom market workbook validate <Listing ID> --file input.xlsx -s <所选平台服务器>
+loomloom market workbook quote    <Listing ID> --file input.xlsx -s <所选平台服务器>
 ```
 
-提交前向所有者展示：
+提交前向所有者展示（全部来自 quote 返回值）：
 
-- 任务数 = **文献篇数 N**（工作簿行数）
-- 每任务费用（胜算云：¥0.70）与**总费用 ≈ 0.70 × N**（私有模板预检只报模型成本——两者都要说清）
-- 预检的模型成本估算、余额与充足性
+- 任务数 = **文献篇数 N**（= `taskCount`，必须与工作簿数据行数一致）
+- 每任务费用（胜算云 ¥0.70 / CogFoundry $0.10）与**总费用 = 单价 × N**（`task_fixed_fee` × N）
+- 加上模型执行成本估算（`estimated_execution_cost`）、余额与是否充足
 
 **此时不要提交。**
 
@@ -224,7 +247,10 @@ loomloom template-spec precheck-workbook <模板ID> <版本ID> <filled.xlsx>
 提交前先与所有者**再次确认平台与费用**：**"平台：胜算云（人民币，¥0.70/任务）。N 篇 → N 个云端任务 → 总费用 ≈ 0.70 × N + 模型成本。确认？"** 行数即篇数锁：任务数（与计费单位数）在提交前确定，运行中不可更改。同时核验 `loomloom doctor` 的当前 profile 为胜算云。然后：
 
 ```bash
-loomloom template-spec submit-workbook <模板ID> <版本ID> <filled.xlsx> --client-request-id <新UUID>
+# 胜算云（中文版默认）
+loomloom market workbook run 01a0465b-5d0e-7279-bcea-f206544521b0 --file input.xlsx --confirm --client-request-id <新UUID> -s https://loomloom.shengsuanyun.com/loom/v1
+# CogFoundry（国际）
+loomloom market workbook run 01a0423e-fdcd-7428-b388-4711b67b0e03 --file input.xlsx --confirm --client-request-id <新UUID> -s https://loomloom.cogfoundry.ai/loom/v1
 ```
 
 保存返回的 `run_id`。监视并取回**全部**任务结果：
