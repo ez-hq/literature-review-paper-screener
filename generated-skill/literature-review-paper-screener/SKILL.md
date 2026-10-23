@@ -1,8 +1,8 @@
 ---
 name: literature-review-paper-screener
-version: 1.4.9
+version: 1.5.0
 description: >-
-  Literature Review Paper Screener V1.4.9. The local agent (internet-enabled, free) searches for literature,
+  Literature Review Paper Screener V1.5.0. The local agent (internet-enabled, free) searches for literature,
   collects evidence, builds per-paper Evidence Records with Evidence Availability Levels A-D, submits ONE
   paper per workbook row to the private LoomLoom Cloud template (rows run as independent parallel tasks, so
   screening never exceeds the platform per-activity timeout), then audits and merges the returned screening
@@ -172,16 +172,16 @@ new platform.
 
 ### 2. Understand your template binding
 
-This Skill orchestrates a **private template version** on each platform. Current bindings
-(do not invent IDs):
+This Skill runs through the **Market Listing** on each platform (buyer path — the listing,
+not a private template, is what the user pays through). Current listing bindings
+(do not invent IDs; verify with `loomloom market workbook download <listing-id>`):
 
-| Platform | Template ID | Version ID |
+| Platform | Listing ID | Market fee |
 |---|---|---|
-| CogFoundry | `76484632-796a-4980-bfc5-180c9fd4200f` | `271f17cf-566f-41fd-80fa-3985a59df62c` (v1.5, v2 syntax, paste mode, English-only) |
-| ShengSuanYun | `a9e2cf68-e1c5-4b01-ab40-85dc6d44d893` | `b394726b-6e18-429c-a9c0-53daf6f3c2eb` (v7, Chinese-only) |
+| CogFoundry | `01a0423e-fdcd-7428-b388-4711b67b0e03` | USD 0.10 / task |
+| ShengSuanYun | `01a0465b-5d0e-7279-bcea-f206544521b0` | CNY 0.70 / task |
 
-Verify with `loomloom template-spec get <template-id>` before running. If the binding changes,
-ask the owner; never guess IDs.
+If the binding changes, ask the owner; never guess IDs.
 
 ### 3. Gather user input (conversational)
 
@@ -314,12 +314,15 @@ undo requests already made in (a) — say so plainly. Before you paste or upload
 4. **No credentials in the payload.** Never include API tokens, keys, or account identifiers in any
    handoff payload.
 
-### 6. Prepare the cloud workbook (one row per paper)
+### 6. Prepare the cloud workbook (one row per paper) — Market buyer path
 
-Download the workbook for the exact version:
+Run through the **Listing** (not a private template). Download the listing's input workbook:
 
 ```bash
-loomloom template-spec download-workbook 76484632-796a-4980-bfc5-180c9fd4200f 271f17cf-566f-41fd-80fa-3985a59df62c
+# CogFoundry (international, USD):
+loomloom market workbook download 01a0423e-fdcd-7428-b388-4711b67b0e03 --output-file lit_input.xlsx -s https://loomloom.cogfoundry.ai/loom/v1
+# ShengSuanYun (China mainland, CNY):
+loomloom market workbook download 01a0465b-5d0e-7279-bcea-f206544521b0 --output-file lit_input.xlsx -s https://loomloom.shengsuanyun.com/loom/v1
 ```
 
 Fill **one row per paper** (N papers → N rows):
@@ -328,40 +331,28 @@ Fill **one row per paper** (N papers → N rows):
 - `Assignment Requirements`, `Research Restrictions` — optional; same values on every row when provided
 - `Required Citation Count`, `Deadline`, `Available Reading Time` — optional (collected for context only)
 - `Screening Model` — select from the approved list once; leave default if fine
-- `Literature Evidence Package` — **platform-dependent**:
+- `Literature Evidence Package (paste)` — paste the single-paper record as **compact single-line
+  JSON** directly into the cell (see references/evidence-package-schema.md). Keep it under ~25,000
+  chars per cell (Excel cell limit is 32,767). One record = one paper; every row carries a
+  **different** single-paper record. Reusing one multi-paper bundle on every row is forbidden
+  (it reintroduces the timeout).
 
-  - **CogFoundry**: upload each per-paper record as its own text/plain asset and put that row's
-    `input_asset_id` in the cell:
-
-    ```bash
-    # one upload per paper
-    loomloom input-asset upload handoff_p001.json
-    # -> asset id for row 1
-    loomloom input-asset upload handoff_p002.json
-    # -> asset id for row 2  ... and so on
-    ```
-
-  - **ShengSuanYun**: its v2 TemplateSpec exposes no text-upload port, so paste the
-    per-paper record as **compact single-line JSON** (see references/evidence-package-schema.md)
-    directly into the cell. Keep it under ~25,000 chars per cell (Excel cell limit is 32,767).
-
-Every row's evidence must reference a **different single-paper** record (a separate asset on
-CogFoundry, a separate pasted record on ShengSuanYun). Reusing one multi-paper bundle on every row
-is forbidden (it reintroduces the timeout).
+Do not modify the workbook's meta sheet (the `__template_id` / `__template_version` keys are
+managed by the platform).
 
 ### 7. Validate and precheck (read-only)
 
 ```bash
-loomloom template-spec validate-workbook <template-id> <version-id> <filled.xlsx>
-loomloom template-spec precheck-workbook <template-id> <version-id> <filled.xlsx>
+loomloom market workbook validate <listing-id> --file lit_input.xlsx -s <selected-server>
+loomloom market workbook quote    <listing-id> --file lit_input.xlsx -s <selected-server>
 ```
 
 Show the owner, before any submission:
 
 - task count = **paper count N** (rows in the workbook)
-- per-task fee (Market: USD 0.10) and **total fee = 0.10 × N** (private-template precheck reports
-  model cost only — state both clearly)
-- estimated model/API cost from the precheck, plus balance and sufficiency
+- per-task fee (Market: USD 0.10 / CNY 0.70) and **total fee = 0.10 × N (USD) or 0.70 × N (CNY)**
+  from the quote, plus estimated model/API cost and balance/sufficiency
+- the selected platform's listing id and server
 
 Do **not** submit yet.
 
@@ -380,7 +371,10 @@ platform (`loomloom doctor`). If the owner changes platform at this point, go ba
 (evidence entry) for the new platform. Then:
 
 ```bash
-loomloom template-spec submit-workbook <template-id> <version-id> <filled.xlsx> --client-request-id <new-uuid>
+# CogFoundry:
+loomloom market workbook run 01a0423e-fdcd-7428-b388-4711b67b0e03 --file lit_input.xlsx --confirm --client-request-id <new-uuid> -s https://loomloom.cogfoundry.ai/loom/v1
+# ShengSuanYun:
+loomloom market workbook run 01a0465b-5d0e-7279-bcea-f206544521b0 --file lit_input.xlsx --confirm --client-request-id <new-uuid> -s https://loomloom.shengsuanyun.com/loom/v1
 ```
 
 Preserve the returned `run_id`. Watch and retrieve **all** task results:
